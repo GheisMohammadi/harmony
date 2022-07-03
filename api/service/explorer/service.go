@@ -292,15 +292,19 @@ func (s *Service) GetCirculatingSupply(w http.ResponseWriter, r *http.Request) {
 func (s *Service) GetTotalSupply(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	totalSupply, err := stakingReward.GetTotalTokens(s.blockchain)
+	fmt.Println("Service.GetTotalSupply------------------>",totalSupply)
 	if err != nil {
 		utils.Logger().Warn().Err(err).Msg("unable to fetch total supply")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 	totalInaccessible, err := chain.GetInaccessibleTokens(s.blockchain)
+
 	if err != nil {
 		utils.Logger().Warn().Err(err).Msg("unable to fetch inaccessible tokens")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+	fmt.Println("Service.totalInaccessible------------------>",totalInaccessible)
+	fmt.Println("Service.res------------------>",totalSupply.Sub(totalInaccessible))
 	if err := json.NewEncoder(w).Encode(totalSupply.Sub(totalInaccessible)); err != nil {
 		utils.Logger().Warn().Msg("cannot JSON-encode total supply")
 		w.WriteHeader(http.StatusInternalServerError)
