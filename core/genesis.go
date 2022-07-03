@@ -342,11 +342,15 @@ func GetGenesisSpec(shardID uint32) *Genesis {
 	return NewGenesisSpec(nodeconfig.Testnet, shardID)
 }
 
+// 10 000 000 000       000 000 000 000 000 000
+
 // GetInitialFunds for a given shard
 func GetInitialFunds(shardID uint32) *big.Int {
 	spec, total := GetGenesisSpec(shardID), big.NewInt(0)
 	for _, account := range spec.Alloc {
+		fmt.Println("ACC----==========>", account.Balance)
 		total = new(big.Int).Add(account.Balance, total)
 	}
+	fmt.Println("ACC----==========>", total)
 	return total
 }

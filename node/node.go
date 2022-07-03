@@ -1110,6 +1110,7 @@ func (node *Node) updateInitialRewardValues() {
 	for i := uint32(0); i < numShards; i++ {
 		initTotal = new(big.Int).Add(core.GetInitialFunds(i), initTotal)
 	}
+	fmt.Println("updateInitialRewardValues-------------------======================>>>>>>>>>>>>",initTotal)
 	reward.SetTotalInitialTokens(initTotal)
 }
 

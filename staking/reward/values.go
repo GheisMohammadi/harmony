@@ -126,18 +126,22 @@ func getTotalPreStakingNetworkRewards(id shardingconfig.NetworkID) *big.Int {
 // This can only be computed with beaconchain if in staking era.
 // If not in staking era, returns the rewards given out by the start of staking era.
 func GetTotalTokens(chain engine.ChainReader) (numeric.Dec, error) {
+	fmt.Println("GetTotalTokens---------------> START",)
 	currHeader := chain.CurrentHeader()
 	if !chain.Config().IsStaking(currHeader.Epoch()) {
+		fmt.Println("GetTotalTokens---------------> Not staking epoch",)
 		return GetTotalPreStakingTokens(), nil
 	}
 	if chain.ShardID() != shard.BeaconChainShardID {
 		return numeric.Dec{}, ErrInvalidBeaconChain
 	}
+	fmt.Println("GetTotalTokens---------header------>",currHeader)
 
 	stakingRewards, err := chain.ReadBlockRewardAccumulator(currHeader.Number().Uint64())
 	if err != nil {
 		return numeric.Dec{}, err
 	}
+	fmt.Println("GetTotalTokens------rewards--------->",stakingRewards)
 	return GetTotalPreStakingTokens().Add(numeric.NewDecFromBigIntWithPrec(stakingRewards, 18)), nil
 }
 
@@ -147,6 +151,8 @@ func GetTotalPreStakingTokens() numeric.Dec {
 	preStakingRewards := numeric.NewDecFromBigIntWithPrec(
 		getTotalPreStakingNetworkRewards(shard.Schedule.GetNetworkID()), 18,
 	)
+	fmt.Println("GetTotalPreStakingTokens--------------->",TotalInitialTokens)
+	fmt.Println("GetTotalPreStakingTokens--------------->",preStakingRewards)
 	return TotalInitialTokens.Add(preStakingRewards)
 }
 
