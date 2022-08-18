@@ -64,6 +64,46 @@ type ChainContext interface {
 }
 
 // NewEVMContext creates a new context for use in the EVM.
+func NewEVMContextWithoutMsg(header *block.Header, chain ChainContext, author *common.Address) vm.Context {
+	// If we don't have an explicit author (i.e. not mining), extract from the header
+	var beneficiary common.Address
+	if author == nil {
+		beneficiary = common.Address{} // Ignore error, we're past header validation
+	} else {
+		beneficiary = *author
+	}
+	vrf := common.Hash{}
+	if len(header.Vrf()) >= 32 {
+		vrfAndProof := header.Vrf()
+		copy(vrf[:], vrfAndProof[:32])
+	}
+	return vm.Context{
+		CanTransfer:           CanTransfer,
+		Transfer:              Transfer,
+		GetHash:               GetHashFn(header, chain),
+		GetVRF:                GetVRFFn(header, chain),
+		IsValidator:           IsValidator,
+		Origin:                common.Address{},
+		GasPrice:              new(big.Int),
+		Coinbase:              beneficiary,
+		GasLimit:              header.GasLimit(),
+		BlockNumber:           header.Number(),
+		EpochNumber:           header.Epoch(),
+		Time:                  header.Time(),
+		VRF:                   vrf,
+		TxType:                0,
+		CreateValidator:       CreateValidatorFn(header, chain),
+		EditValidator:         EditValidatorFn(header, chain),
+		Delegate:              DelegateFn(header, chain),
+		Undelegate:            UndelegateFn(header, chain),
+		CollectRewards:        CollectRewardsFn(header, chain),
+		CalculateMigrationGas: CalculateMigrationGasFn(chain),
+		ShardID:               chain.ShardID(),
+		NumShards:             shard.Schedule.InstanceForEpoch(header.Epoch()).NumShards(),
+	}
+}
+
+// NewEVMContext creates a new context for use in the EVM.
 func NewEVMContext(msg Message, header *block.Header, chain ChainContext, author *common.Address) vm.Context {
 	// If we don't have an explicit author (i.e. not mining), extract from the header
 	var beneficiary common.Address
