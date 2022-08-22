@@ -20,12 +20,11 @@ const (
 	downloadBlocksRetryLimit        = 10 // downloadBlocks service retry limit
 	RegistrationNumber              = 3
 	SyncingPortDifference           = 3000
-	inSyncThreshold                 = 0   // when peerBlockHeight - myBlockHeight <= inSyncThreshold, it's ready to join consensus
-	SyncLoopBatchSize        uint32 = 30  // maximum size for one query of block hashes
-	verifyHeaderBatchSize    uint64 = 100 // block chain header verification batch size (not used for now)
+	inSyncThreshold                 = 0  // when peerBlockHeight - myBlockHeight <= inSyncThreshold, it's ready to join consensus
+	SyncLoopBatchSize        uint32 = 30 // maximum size for one query of block hashes
 	LastMileBlocksSize              = 50
 
-	// after cutting off a number of connected peers, the result number of peers
+	// NumPeersLowBound after cutting off a number of connected peers, the result number of peers
 	// shall be between numPeersLowBound and numPeersHighBound
 	NumPeersLowBound  = 3
 	numPeersHighBound = 5
@@ -44,14 +43,6 @@ type SyncPeerConfig struct {
 	newBlocks   []*types.Block // blocks after node doing sync
 	mux         sync.Mutex
 	failedTimes uint64
-}
-
-// CreateTestSyncPeerConfig used for testing.
-func CreateTestSyncPeerConfig(client *downloader.Client, blockHashes [][]byte) *SyncPeerConfig {
-	return &SyncPeerConfig{
-		client:      client,
-		blockHashes: blockHashes,
-	}
 }
 
 // GetClient returns client pointer of downloader.Client
@@ -157,7 +148,7 @@ func (sc *SyncConfig) AddPeer(peer *SyncPeerConfig) {
 	sc.peers = append(sc.peers, peer)
 }
 
-// limitNumPeers limits number of peers to release some server end sources.
+// SelectRandomPeers returns a random number of peers.
 func (sc *SyncConfig) SelectRandomPeers(randSeed int64) {
 	numPeers := len(sc.peers)
 	targetSize := calcNumPeersWithBound(numPeers, NumPeersLowBound, numPeersHighBound)

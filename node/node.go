@@ -182,8 +182,7 @@ func (node *Node) CurrentSyncInstance() bool {
 	return node.GetOrCreateSyncInstance(false) != nil
 }
 
-// Blockchain returns the blockchain for the node's current shard.
-// if rebuild sets to true, it generates a new instance
+// GetOrCreateSyncInstance creates sync instance.
 func (node *Node) GetOrCreateSyncInstance(initiate bool) ISync {
 	// otherwise, return an instance of state sync, either legacy or staged
 	if node.NodeConfig.StagedSync {

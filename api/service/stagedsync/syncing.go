@@ -15,8 +15,6 @@ import (
 	"github.com/ledgerwatch/erigon-lib/kv/mdbx"
 	"github.com/ledgerwatch/erigon-lib/kv/memdb"
 	"github.com/ledgerwatch/log/v3"
-	//"github.com/ledgerwatch/erigon-lib/kv/mdbx"
-	//"github.com/ledgerwatch/log/v3"
 )
 
 const (
@@ -29,14 +27,12 @@ const (
 	ExtraBlockHashesBucket       = "ExtraBlockHashes" //extra block hashes for backgound process
 
 	// cache db keys
-	StartBlockHeight = "StartBlockHeight"
-	StartBlockHash   = "StartBlockHash"
-	LastBlockHeight  = "LastBlockHeight"
-	LastBlockHash    = "LastBlockHash"
+	LastBlockHeight = "LastBlockHeight"
+	LastBlockHash   = "LastBlockHash"
 
 	// cache db  names
-	Block_Hashes_Cache_DB = "cache_block_hashes"
-	Block_Cache_DB        = "cache_blocks"
+	BlockHashesCacheDB = "cache_block_hashes"
+	BlockCacheDB       = "cache_blocks"
 )
 
 var Buckets = []string{

@@ -1,31 +1,26 @@
 package stagedsync
 
 import (
-	"context"
-	"encoding/binary"
 	"errors"
-	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/harmony-one/harmony/internal/utils"
 	"github.com/ledgerwatch/erigon-lib/kv"
 )
 
 type ExecFunc func(firstCycle bool, invalidBlockUnwind bool, s *StageState, unwinder Unwinder, tx kv.RwTx) error
 
 type StageHandler interface {
-	// ExecFunc is the execution function for the stage to move forward.
+	// Exec is the execution function for the stage to move forward.
 	// * state - is the current state of the stage and contains stage data.
 	// * unwinder - if the stage needs to cause unwinding, `unwinder` methods can be used.
 	Exec(firstCycle bool, invalidBlockUnwind bool, s *StageState, unwinder Unwinder, tx kv.RwTx) error
 
-	// UnwindFunc is the unwinding logic of the stage.
+	// Unwind is the unwinding logic of the stage.
 	// * unwindState - contains information about the unwind itself.
 	// * stageState - represents the state of this stage at the beginning of unwind.
 	Unwind(firstCycle bool, u *UnwindState, s *StageState, tx kv.RwTx) error
 
-	// CleanUpFunc is the execution function for the stage to prune old data.
+	// CleanUp is the execution function for the stage to prune old data.
 	// * state - is the current state of the stage and contains stage data.
 	CleanUp(firstCycle bool, p *CleanUpState, tx kv.RwTx) error
 }
@@ -66,9 +61,6 @@ func (s *StageState) StageProgress(db kv.Getter, id SyncStageID) (uint64, error)
 
 // Update updates the stage state (current block number) in the database. Can be called multiple times during stage execution.
 func (s *StageState) Update(db kv.Putter, newBlockNum uint64) error {
-	// if m, ok := syncMetrics[s.ID]; ok {
-	// 	m.Set(newBlockNum)
-	// }
 	return SaveStageProgress(db, s.ID, s.state.isBeacon, newBlockNum)
 }
 func (s *StageState) UpdateCleanUp(db kv.Putter, blockNum uint64) error {
@@ -112,69 +104,4 @@ func (s *CleanUpState) Done(db kv.Putter) error {
 }
 func (s *CleanUpState) DoneAt(db kv.Putter, blockNum uint64) error {
 	return SaveStageCleanUpProgress(db, s.ID, s.state.isBeacon, blockNum)
-}
-
-// CleanUpTable has `limit` parameter to avoid too large data deletes per one sync cycle - better delete by small portions to reduce db.FreeList size
-func CleanUpTable(tx kv.RwTx, table string, pruneTo uint64, ctx context.Context, limit int) error {
-	c, err := tx.RwCursor(table)
-
-	if err != nil {
-		return ErrPruningCursorCreationFail
-	}
-	defer c.Close()
-
-	i := 0
-	for k, _, err := c.First(); k != nil; k, _, err = c.Next() {
-		if err != nil {
-			return err
-		}
-		i++
-		if i > limit {
-			break
-		}
-
-		blockNum := binary.BigEndian.Uint64(k)
-		if blockNum >= pruneTo {
-			break
-		}
-		select {
-		case <-ctx.Done():
-			return ErrStopped
-		default:
-		}
-		if err = c.DeleteCurrent(); err != nil {
-			return fmt.Errorf("failed to remove for block %d: %w", blockNum, err)
-		}
-	}
-	return nil
-}
-
-func CleanUpTableDupSort(tx kv.RwTx, table string, logPrefix string, pruneTo uint64, logEvery *time.Ticker, ctx context.Context) error {
-	c, err := tx.RwCursorDupSort(table)
-	if err != nil {
-		return ErrPruningCursorCreationFail
-	}
-	defer c.Close()
-
-	for k, _, err := c.First(); k != nil; k, _, err = c.NextNoDup() {
-		if err != nil {
-			return fmt.Errorf("failed to move %s cleanup cursor: %w", table, err)
-		}
-		blockNum := binary.BigEndian.Uint64(k)
-		if blockNum >= pruneTo {
-			break
-		}
-		select {
-		case <-logEvery.C:
-			utils.Logger().Info().
-				Msgf("[STAGED_SYNC] [%s] table:%s block:%s", logPrefix, table, blockNum)
-		case <-ctx.Done():
-			return ErrStopped
-		default:
-		}
-		if err = c.DeleteCurrentDuplicates(); err != nil {
-			return fmt.Errorf("failed to remove for block %d: %w", blockNum, err)
-		}
-	}
-	return nil
 }

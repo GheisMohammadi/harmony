@@ -37,7 +37,7 @@ func NewStageStatesCfg(ctx context.Context, bc core.BlockChain, db kv.RwDB) Stag
 	}
 }
 
-// ExecStatesStage progresses States stage in the forward direction
+// Exec progresses States stage in the forward direction.
 func (stg *StageStates) Exec(firstCycle bool, invalidBlockUnwind bool, s *StageState, unwinder Unwinder, tx kv.RwTx) (err error) {
 
 	maxPeersHeight := s.state.syncStatus.MaxPeersHeight
@@ -98,18 +98,6 @@ func (stg *StageStates) Exec(firstCycle bool, invalidBlockUnwind bool, s *StageS
 			return err
 		}
 
-		/*
-			// TODO:  use hash as key and here check key (which is hash) against block.header.hash
-				gotHash := block.Hash()
-				if !bytes.Equal(gotHash[:], tasks[i].blockHash) {
-					utils.Logger().Warn().
-						Err(errors.New("wrong block delivery")).
-						Str("expectHash", hex.EncodeToString(tasks[i].blockHash)).
-						Str("gotHash", hex.EncodeToString(gotHash[:]))
-					continue
-				}
-		*/
-
 		if block.NumberU64() <= currProgress {
 			continue
 		}
@@ -126,29 +114,6 @@ func (stg *StageStates) Exec(firstCycle bool, invalidBlockUnwind bool, s *StageS
 				s.state.UnwindTo(blockHeight-1, block.Hash())
 				return err
 			}
-
-			/*
-				//TODO: we are handling the bad blocks and already blocks are verified, so do we need verify header?
-					err := stg.configs.bc.Engine().VerifyHeader(stg.configs.bc, block.Header(), verifySeal)
-					if err == engine.ErrUnknownAncestor {
-						return err
-					} else if err != nil {
-						utils.Logger().Error().Err(err).Msgf("[STAGED_SYNC] failed verifying signatures for new block %d", block.NumberU64())
-
-						if !verifyAllSig {
-							utils.Logger().Info().Interface("block", stg.configs.bc.CurrentBlock()).Msg("[STAGED_SYNC] Rolling back last 99 blocks!")
-							for i := uint64(0); i < s.state.VerifyHeaderBatchSize-1; i++ {
-								if rbErr := stg.configs.bc.Rollback([]common.Hash{stg.configs.bc.CurrentBlock().Hash()}); rbErr != nil {
-									utils.Logger().Err(rbErr).Msg("[STAGED_SYNC] UpdateBlockAndStatus: failed to rollback")
-									return err
-								}
-							}
-
-							currProgress = stg.configs.bc.CurrentBlock().NumberU64()
-						}
-						return err
-					}
-			*/
 		}
 
 		newBlocks = append(newBlocks, block)

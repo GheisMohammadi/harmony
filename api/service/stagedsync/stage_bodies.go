@@ -54,7 +54,7 @@ func NewStageBodiesCfg(ctx context.Context, bc core.BlockChain, db kv.RwDB, isBe
 
 func initBlocksCacheDB(ctx context.Context, isBeacon bool) (db kv.RwDB, err error) {
 	// create caches db
-	cachedbName := Block_Cache_DB
+	cachedbName := BlockCacheDB
 	if isBeacon {
 		cachedbName = "beacon_" + cachedbName
 	}
@@ -85,7 +85,7 @@ func initBlocksCacheDB(ctx context.Context, isBeacon bool) (db kv.RwDB, err erro
 	return cachedb, nil
 }
 
-// ExecBodiesStage progresses Bodies stage in the forward direction
+// Exec progresses Bodies stage in the forward direction
 func (b *StageBodies) Exec(firstCycle bool, invalidBlockUnwind bool, s *StageState, unwinder Unwinder, tx kv.RwTx) (err error) {
 
 	maxPeersHeight := s.state.syncStatus.MaxPeersHeight

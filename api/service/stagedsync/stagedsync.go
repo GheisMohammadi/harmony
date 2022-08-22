@@ -3,7 +3,6 @@ package stagedsync
 import (
 	"bytes"
 	"context"
-	"encoding/hex"
 	"fmt"
 	"math"
 	"sort"
@@ -94,13 +93,10 @@ type Timing struct {
 	took      time.Duration
 }
 
-func (s *StagedSync) Len() int                 { return len(s.stages) }
-func (s *StagedSync) Context() context.Context { return s.ctx }
-func (s *StagedSync) IsBeacon() bool           { return s.isBeacon }
-func (s *StagedSync) IsExplorer() bool         { return s.isExplorer }
-
-// func (s *StagedSync) Consensus() *consensus.Consensus { return s.consensus }
-// func (s *StagedSync) Worker() *worker.Worker          { return s.worker }
+func (s *StagedSync) Len() int                    { return len(s.stages) }
+func (s *StagedSync) Context() context.Context    { return s.ctx }
+func (s *StagedSync) IsBeacon() bool              { return s.isBeacon }
+func (s *StagedSync) IsExplorer() bool            { return s.isExplorer }
 func (s *StagedSync) Blockchain() core.BlockChain { return s.bc }
 func (s *StagedSync) DB() kv.RwDB                 { return s.db }
 func (s *StagedSync) PrevUnwindPoint() *uint64    { return s.prevUnwindPoint }
@@ -360,9 +356,7 @@ func CreateView(ctx context.Context, db kv.RwDB, tx kv.Tx, f func(tx kv.Tx) erro
 	if tx != nil {
 		return f(tx)
 	}
-	return db.View(context.Background(), func(etx kv.Tx) error {
-		return f(etx)
-	})
+	return db.View(ctx, f)
 }
 
 func ByteCount(b uint64) string {
@@ -516,7 +510,7 @@ func (s *StagedSync) pruneStage(firstCycle bool, stage *Stage, db kv.RwDB, tx kv
 			Msgf("[STAGED_SYNC] [%s] CleanUp done in %d", logPrefix, took)
 
 		utils.Logger().Info().
-			Msgf("[STAGED_SYNC] [%s] CleanUp done in ", logPrefix, took)
+			Msgf("[STAGED_SYNC] [%s] CleanUp done in %d", logPrefix, took)
 	}
 	s.timings = append(s.timings, Timing{isCleanUp: true, stage: stage.ID, took: took})
 	return nil
@@ -558,27 +552,27 @@ func (s *StagedSync) EnableStages(ids ...SyncStageID) {
 	}
 }
 
-func (ss *StagedSync) purgeAllBlocksFromCache() {
-	ss.lastMileMux.Lock()
-	ss.lastMileBlocks = nil
-	ss.lastMileMux.Unlock()
+func (s *StagedSync) purgeAllBlocksFromCache() {
+	s.lastMileMux.Lock()
+	s.lastMileBlocks = nil
+	s.lastMileMux.Unlock()
 
-	ss.syncMux.Lock()
-	defer ss.syncMux.Unlock()
-	ss.commonBlocks = make(map[int]*types.Block)
+	s.syncMux.Lock()
+	defer s.syncMux.Unlock()
+	s.commonBlocks = make(map[int]*types.Block)
 
-	ss.syncConfig.ForEachPeer(func(configPeer *SyncPeerConfig) (brk bool) {
+	s.syncConfig.ForEachPeer(func(configPeer *SyncPeerConfig) (brk bool) {
 		configPeer.blockHashes = nil
 		configPeer.newBlocks = nil
 		return
 	})
 }
 
-func (ss *StagedSync) purgeOldBlocksFromCache() {
-	ss.syncMux.Lock()
-	defer ss.syncMux.Unlock()
-	ss.commonBlocks = make(map[int]*types.Block)
-	ss.syncConfig.ForEachPeer(func(configPeer *SyncPeerConfig) (brk bool) {
+func (s *StagedSync) purgeOldBlocksFromCache() {
+	s.syncMux.Lock()
+	defer s.syncMux.Unlock()
+	s.commonBlocks = make(map[int]*types.Block)
+	s.syncConfig.ForEachPeer(func(configPeer *SyncPeerConfig) (brk bool) {
 		configPeer.blockHashes = nil
 		return
 	})
@@ -586,20 +580,20 @@ func (ss *StagedSync) purgeOldBlocksFromCache() {
 
 // AddLastMileBlock add the latest a few block into queue for syncing
 // only keep the latest blocks with size capped by LastMileBlocksSize
-func (ss *StagedSync) AddLastMileBlock(block *types.Block) {
-	ss.lastMileMux.Lock()
-	defer ss.lastMileMux.Unlock()
-	if ss.lastMileBlocks != nil {
-		if len(ss.lastMileBlocks) >= LastMileBlocksSize {
-			ss.lastMileBlocks = ss.lastMileBlocks[1:]
+func (s *StagedSync) AddLastMileBlock(block *types.Block) {
+	s.lastMileMux.Lock()
+	defer s.lastMileMux.Unlock()
+	if s.lastMileBlocks != nil {
+		if len(s.lastMileBlocks) >= LastMileBlocksSize {
+			s.lastMileBlocks = s.lastMileBlocks[1:]
 		}
-		ss.lastMileBlocks = append(ss.lastMileBlocks, block)
+		s.lastMileBlocks = append(s.lastMileBlocks, block)
 	}
 }
 
 // AddNewBlock will add newly received block into state syncing queue
-func (ss *StagedSync) AddNewBlock(peerHash []byte, block *types.Block) {
-	pc := ss.syncConfig.FindPeerByHash(peerHash)
+func (s *StagedSync) AddNewBlock(peerHash []byte, block *types.Block) {
+	pc := s.syncConfig.FindPeerByHash(peerHash)
 	if pc == nil {
 		// Received a block with no active peer; just ignore.
 		return
@@ -616,7 +610,7 @@ func (ss *StagedSync) AddNewBlock(peerHash []byte, block *types.Block) {
 }
 
 // CreateSyncConfig creates SyncConfig for StateSync object.
-func (ss *StagedSync) CreateSyncConfig(peers []p2p.Peer, shardID uint32) error {
+func (s *StagedSync) CreateSyncConfig(peers []p2p.Peer, shardID uint32) error {
 	// sanity check to ensure no duplicate peers
 	if err := checkPeersDuplicity(peers); err != nil {
 		return err
@@ -629,10 +623,10 @@ func (ss *StagedSync) CreateSyncConfig(peers []p2p.Peer, shardID uint32) error {
 	if len(peers) == 0 {
 		return errors.New("[STAGED_SYNC] no peers to connect to")
 	}
-	if ss.syncConfig != nil {
-		ss.syncConfig.CloseConnections()
+	if s.syncConfig != nil {
+		s.syncConfig.CloseConnections()
 	}
-	ss.syncConfig = &SyncConfig{}
+	s.syncConfig = &SyncConfig{}
 
 	var wg sync.WaitGroup
 	for _, peer := range peers {
@@ -648,17 +642,17 @@ func (ss *StagedSync) CreateSyncConfig(peers []p2p.Peer, shardID uint32) error {
 				port:   peer.Port,
 				client: client,
 			}
-			ss.syncConfig.AddPeer(peerConfig)
+			s.syncConfig.AddPeer(peerConfig)
 		}(peer)
 	}
 	wg.Wait()
 	utils.Logger().Info().
-		Int("len", len(ss.syncConfig.peers)).
+		Int("len", len(s.syncConfig.peers)).
 		Msg("[STAGED_SYNC] Finished making connection to peers")
 
 	// limit the number of dns peers to connect
 	randSeed := time.Now().UnixNano()
-	ss.syncConfig.SelectRandomPeers(randSeed)
+	s.syncConfig.SelectRandomPeers(randSeed)
 
 	return nil
 }
@@ -681,30 +675,30 @@ func checkPeersDuplicity(ps []p2p.Peer) error {
 }
 
 // GetActivePeerNumber returns the number of active peers
-func (ss *StagedSync) GetActivePeerNumber() int {
-	if ss.syncConfig == nil {
+func (s *StagedSync) GetActivePeerNumber() int {
+	if s.syncConfig == nil {
 		return 0
 	}
 	// len() is atomic; no need to hold mutex.
-	return len(ss.syncConfig.peers)
+	return len(s.syncConfig.peers)
 }
 
 // getConsensusHashes gets all hashes needed to download.
-func (ss *StagedSync) getConsensusHashes(startHash []byte, size uint32) error {
+func (s *StagedSync) getConsensusHashes(startHash common.Hash, size uint32) error {
 	var wg sync.WaitGroup
-	ss.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
+	s.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 
-			response := peerConfig.client.GetBlockHashes(startHash, size, ss.selfip, ss.selfport)
+			response := peerConfig.client.GetBlockHashes(startHash[:], size, s.selfip, s.selfport)
 			if response == nil {
 				utils.Logger().Warn().
 					Str("peerIP", peerConfig.ip).
 					Str("peerPort", peerConfig.port).
 					Msg("[STAGED_SYNC] getConsensusHashes Nil Response, will be replaced with reserved node (if any)")
 				// replace it with reserved peer
-				ss.syncConfig.ReplacePeerWithReserved(peerConfig)
+				s.syncConfig.ReplacePeerWithReserved(peerConfig)
 				return
 			}
 			utils.Logger().Info().Uint32("queried blockHash size", size).
@@ -734,16 +728,16 @@ func (ss *StagedSync) getConsensusHashes(startHash []byte, size uint32) error {
 }
 
 // analyze block hashes and detects invalid peers
-func (ss *StagedSync) getInvalidPeersByBlockHashes(tx kv.RwTx) (map[string]bool, int, error) {
+func (s *StagedSync) getInvalidPeersByBlockHashes(tx kv.RwTx) (map[string]bool, int, error) {
 	invalidPeers := make(map[string]bool)
-	if len(ss.syncConfig.peers) < 3 {
-		lb := len(ss.syncConfig.peers[0].blockHashes)
+	if len(s.syncConfig.peers) < 3 {
+		lb := len(s.syncConfig.peers[0].blockHashes)
 		return invalidPeers, lb, nil
 	}
 
 	// confirmations threshold to consider as valid block hash
-	th := 2 * int(len(ss.syncConfig.peers)/3)
-	if len(ss.syncConfig.peers) == 4 {
+	th := 2 * int(len(s.syncConfig.peers)/3)
+	if len(s.syncConfig.peers) == 4 {
 		th = 3
 	}
 
@@ -754,7 +748,7 @@ func (ss *StagedSync) getInvalidPeersByBlockHashes(tx kv.RwTx) (map[string]bool,
 
 	// populate the block hashes map
 	bhm := make(map[string]*BlockHashMap)
-	ss.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
+	s.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
 		for _, blkHash := range peerConfig.blockHashes {
 			k := string(blkHash)
 			if _, ok := bhm[k]; !ok {
@@ -777,7 +771,7 @@ func (ss *StagedSync) getInvalidPeersByBlockHashes(tx kv.RwTx) (map[string]bool,
 		// So, any peer with that block hash will be considered as invalid peer
 		if len(hmap.peers) < th {
 			bhm[blkHash].isValid = false
-			for _, p := range ss.syncConfig.peers {
+			for _, p := range s.syncConfig.peers {
 				hasBlockHash := hmap.peers[string(p.peerHash)]
 				if hasBlockHash {
 					invalidPeers[string(p.peerHash)] = true
@@ -790,12 +784,12 @@ func (ss *StagedSync) getInvalidPeersByBlockHashes(tx kv.RwTx) (map[string]bool,
 		validBlockHashes++
 
 		// if all peers already sent this block hash, then it is considered as valid
-		if len(hmap.peers) == len(ss.syncConfig.peers) {
+		if len(hmap.peers) == len(s.syncConfig.peers) {
 			continue
 		}
 
 		//consider invalid peer if it hasn't sent this block hash
-		for _, p := range ss.syncConfig.peers {
+		for _, p := range s.syncConfig.peers {
 			hasBlockHash := hmap.peers[string(p.peerHash)]
 			if !hasBlockHash {
 				invalidPeers[string(p.peerHash)] = true
@@ -803,38 +797,8 @@ func (ss *StagedSync) getInvalidPeersByBlockHashes(tx kv.RwTx) (map[string]bool,
 		}
 
 	}
-	fmt.Printf("%d out of %d peers have missed blocks or sent invalid blocks\n", len(invalidPeers), len(ss.syncConfig.peers))
+	fmt.Printf("%d out of %d peers have missed blocks or sent invalid blocks\n", len(invalidPeers), len(s.syncConfig.peers))
 	return invalidPeers, validBlockHashes, nil
-}
-
-func (ss *StagedSync) generateStateSyncTaskQueue(bc core.BlockChain, tx kv.RwTx) error {
-	ss.stateSyncTaskQueue = queue.New(0)
-	allTasksAddedToQueue := false
-	ss.syncConfig.ForEachPeer(func(configPeer *SyncPeerConfig) (brk bool) {
-		for id, blockHash := range configPeer.blockHashes {
-			if err := ss.stateSyncTaskQueue.Put(SyncBlockTask{index: id, blockHash: blockHash}); err != nil {
-				ss.stateSyncTaskQueue = queue.New(0)
-				utils.Logger().Warn().
-					Err(err).
-					Int("taskIndex", id).
-					Str("taskBlock", hex.EncodeToString(blockHash)).
-					Msg("[STAGED_SYNC] generateStateSyncTaskQueue: cannot add task")
-				break
-			}
-		}
-		// check if all block hashes added to task queue
-		if ss.stateSyncTaskQueue.Len() == int64(len(configPeer.blockHashes)) {
-			allTasksAddedToQueue = true
-			brk = true
-		}
-		return
-	})
-
-	if !allTasksAddedToQueue {
-		return fmt.Errorf("cannot add task to queue")
-	}
-	utils.Logger().Info().Int64("length", ss.stateSyncTaskQueue.Len()).Msg("[STAGED_SYNC] generateStateSyncTaskQueue: finished")
-	return nil
 }
 
 // RlpDecodeBlockOrBlockWithSig decode payload to types.Block or BlockWithSig.
@@ -884,13 +848,13 @@ func GetHowManyMaxConsensus(blocks []*types.Block) (int, int) {
 	return maxFirstID, maxCount
 }
 
-func (ss *StagedSync) getMaxConsensusBlockFromParentHash(parentHash common.Hash) *types.Block {
+func (s *StagedSync) getMaxConsensusBlockFromParentHash(parentHash common.Hash) *types.Block {
 	var (
 		candidateBlocks []*types.Block
 		candidateLock   sync.Mutex
 	)
 
-	ss.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
+	s.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
 		peerConfig.mux.Lock()
 		defer peerConfig.mux.Unlock()
 
@@ -922,8 +886,8 @@ func (ss *StagedSync) getMaxConsensusBlockFromParentHash(parentHash common.Hash)
 	return candidateBlocks[maxFirstID]
 }
 
-func (ss *StagedSync) getBlockFromOldBlocksByParentHash(parentHash common.Hash) *types.Block {
-	for _, block := range ss.commonBlocks {
+func (s *StagedSync) getBlockFromOldBlocksByParentHash(parentHash common.Hash) *types.Block {
+	for _, block := range s.commonBlocks {
 		ph := block.ParentHash()
 		if bytes.Equal(ph[:], parentHash[:]) {
 			return block
@@ -932,8 +896,8 @@ func (ss *StagedSync) getBlockFromOldBlocksByParentHash(parentHash common.Hash) 
 	return nil
 }
 
-func (ss *StagedSync) getBlockFromLastMileBlocksByParentHash(parentHash common.Hash) *types.Block {
-	for _, block := range ss.lastMileBlocks {
+func (s *StagedSync) getBlockFromLastMileBlocksByParentHash(parentHash common.Hash) *types.Block {
+	for _, block := range s.lastMileBlocks {
 		ph := block.ParentHash()
 		if bytes.Equal(ph[:], parentHash[:]) {
 			return block
@@ -943,7 +907,7 @@ func (ss *StagedSync) getBlockFromLastMileBlocksByParentHash(parentHash common.H
 }
 
 // UpdateBlockAndStatus ...
-func (ss *StagedSync) UpdateBlockAndStatus(block *types.Block, bc core.BlockChain, verifyAllSig bool) error {
+func (s *StagedSync) UpdateBlockAndStatus(block *types.Block, bc core.BlockChain, verifyAllSig bool) error {
 	if block.NumberU64() != bc.CurrentBlock().NumberU64()+1 {
 		utils.Logger().Debug().Uint64("curBlockNum", bc.CurrentBlock().NumberU64()).Uint64("receivedBlockNum", block.NumberU64()).Msg("[STAGED_SYNC] Inappropriate block number, ignore!")
 		return nil
@@ -953,7 +917,7 @@ func (ss *StagedSync) UpdateBlockAndStatus(block *types.Block, bc core.BlockChai
 	// Verify block signatures
 	if block.NumberU64() > 1 {
 		// Verify signature every N blocks (which N is verifyHeaderBatchSize and can be adjusted in configs)
-		verifySeal := block.NumberU64()%ss.VerifyHeaderBatchSize == 0 || verifyAllSig
+		verifySeal := block.NumberU64()%s.VerifyHeaderBatchSize == 0 || verifyAllSig
 		verifyCurrentSig := verifyAllSig && haveCurrentSig
 		if verifyCurrentSig {
 			sig, bitmap, err := chain.ParseCommitSigAndBitmap(block.GetCurrentCommitSig())
@@ -975,7 +939,7 @@ func (ss *StagedSync) UpdateBlockAndStatus(block *types.Block, bc core.BlockChai
 
 			if !verifyAllSig {
 				utils.Logger().Info().Interface("block", bc.CurrentBlock()).Msg("[STAGED_SYNC] UpdateBlockAndStatus: Rolling back last 99 blocks!")
-				for i := uint64(0); i < ss.VerifyHeaderBatchSize-1; i++ {
+				for i := uint64(0); i < s.VerifyHeaderBatchSize-1; i++ {
 					if rbErr := bc.Rollback([]common.Hash{bc.CurrentBlock().Hash()}); rbErr != nil {
 						utils.Logger().Err(rbErr).Msg("[STAGED_SYNC] UpdateBlockAndStatus: failed to rollback")
 						return err
@@ -1015,31 +979,31 @@ func (ss *StagedSync) UpdateBlockAndStatus(block *types.Block, bc core.BlockChai
 
 // RegisterNodeInfo will register node to peers to accept future new block broadcasting
 // return number of successful registration
-func (ss *StagedSync) RegisterNodeInfo() int {
+func (s *StagedSync) RegisterNodeInfo() int {
 	registrationNumber := RegistrationNumber
 	utils.Logger().Debug().
 		Int("registrationNumber", registrationNumber).
-		Int("activePeerNumber", len(ss.syncConfig.peers)).
+		Int("activePeerNumber", len(s.syncConfig.peers)).
 		Msg("[STAGED_SYNC] node registration to peers")
 
 	count := 0
-	ss.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
+	s.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
 		logger := utils.Logger().With().Str("peerPort", peerConfig.port).Str("peerIP", peerConfig.ip).Logger()
 		if count >= registrationNumber {
 			brk = true
 			return
 		}
-		if peerConfig.ip == ss.selfip && peerConfig.port == GetSyncingPort(ss.selfport) {
+		if peerConfig.ip == s.selfip && peerConfig.port == GetSyncingPort(s.selfport) {
 			logger.Debug().
-				Str("selfport", ss.selfport).
-				Str("selfsyncport", GetSyncingPort(ss.selfport)).
+				Str("selfport", s.selfport).
+				Str("selfsyncport", GetSyncingPort(s.selfport)).
 				Msg("[STAGED_SYNC] skip self")
 			return
 		}
-		err := peerConfig.registerToBroadcast(ss.selfPeerHash[:], ss.selfip, ss.selfport)
+		err := peerConfig.registerToBroadcast(s.selfPeerHash[:], s.selfip, s.selfport)
 		if err != nil {
 			logger.Debug().
-				Hex("selfPeerHash", ss.selfPeerHash[:]).
+				Hex("selfPeerHash", s.selfPeerHash[:]).
 				Msg("[STAGED_SYNC] register failed to peer")
 			return
 		}
@@ -1052,14 +1016,14 @@ func (ss *StagedSync) RegisterNodeInfo() int {
 }
 
 // getMaxPeerHeight gets the maximum blockchain heights from peers
-func (ss *StagedSync) getMaxPeerHeight(isBeacon bool) (uint64, error) {
+func (s *StagedSync) getMaxPeerHeight(isBeacon bool) (uint64, error) {
 	maxHeight := uint64(math.MaxUint64)
 	var (
 		wg   sync.WaitGroup
 		lock sync.Mutex
 	)
 
-	ss.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
+	s.syncConfig.ForEachPeer(func(peerConfig *SyncPeerConfig) (brk bool) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -1068,7 +1032,7 @@ func (ss *StagedSync) getMaxPeerHeight(isBeacon bool) (uint64, error) {
 			response, err := peerConfig.client.GetBlockChainHeight()
 			if err != nil {
 				utils.Logger().Warn().Err(err).Str("peerIP", peerConfig.ip).Str("peerPort", peerConfig.port).Msg("[STAGED_SYNC]GetBlockChainHeight failed")
-				ss.syncConfig.RemovePeer(peerConfig)
+				s.syncConfig.RemovePeer(peerConfig)
 				return
 			}
 			utils.Logger().Info().Str("peerIP", peerConfig.ip).Uint64("blockHeight", response.BlockHeight).
@@ -1093,19 +1057,19 @@ func (ss *StagedSync) getMaxPeerHeight(isBeacon bool) (uint64, error) {
 }
 
 // IsSameBlockchainHeight checks whether the node is out of sync from other peers
-func (ss *StagedSync) IsSameBlockchainHeight(bc core.BlockChain) (uint64, bool) {
-	otherHeight, _ := ss.getMaxPeerHeight(false)
+func (s *StagedSync) IsSameBlockchainHeight(bc core.BlockChain) (uint64, bool) {
+	otherHeight, _ := s.getMaxPeerHeight(false)
 	currentHeight := bc.CurrentBlock().NumberU64()
 	return otherHeight, currentHeight == otherHeight
 }
 
 // GetMaxPeerHeight ..
-func (ss *StagedSync) GetMaxPeerHeight() uint64 {
-	mph, _ := ss.getMaxPeerHeight(false)
+func (s *StagedSync) GetMaxPeerHeight() uint64 {
+	mph, _ := s.getMaxPeerHeight(false)
 	return mph
 }
 
-func (ss *StagedSync) addConsensusLastMile(bc core.BlockChain, consensus *consensus.Consensus) error {
+func (s *StagedSync) addConsensusLastMile(bc core.BlockChain, consensus *consensus.Consensus) error {
 	curNumber := bc.CurrentBlock().NumberU64()
 	blockIter, err := consensus.GetLastMileBlockIter(curNumber + 1)
 	if err != nil {
@@ -1141,44 +1105,44 @@ func ParseResult(res SyncCheckResult) (IsSynchronized bool, OtherHeight uint64, 
 // GetSyncStatus get the last sync status for other modules (E.g. RPC, explorer).
 // If the last sync result is not expired, return the sync result immediately.
 // If the last result is expired, ask the remote DNS nodes for latest height and return the result.
-func (ss *StagedSync) GetSyncStatus() SyncCheckResult {
-	return ss.syncStatus.Get(func() SyncCheckResult {
-		return ss.isSynchronized(false)
+func (s *StagedSync) GetSyncStatus() SyncCheckResult {
+	return s.syncStatus.Get(func() SyncCheckResult {
+		return s.isSynchronized(false)
 	})
 }
 
-func (ss *StagedSync) GetParsedSyncStatus() (IsSynchronized bool, OtherHeight uint64, HeightDiff uint64) {
-	res := ss.syncStatus.Get(func() SyncCheckResult {
-		return ss.isSynchronized(false)
+func (s *StagedSync) GetParsedSyncStatus() (IsSynchronized bool, OtherHeight uint64, HeightDiff uint64) {
+	res := s.syncStatus.Get(func() SyncCheckResult {
+		return s.isSynchronized(false)
 	})
 	return ParseResult(res)
 }
 
-func (ss *StagedSync) IsSynchronized() bool {
-	result := ss.GetSyncStatus()
+func (s *StagedSync) IsSynchronized() bool {
+	result := s.GetSyncStatus()
 	return result.IsSynchronized
 }
 
 // GetSyncStatusDoubleChecked return the sync status when enforcing a immediate query on DNS nodes
 // with a double check to avoid false alarm.
-func (ss *StagedSync) GetSyncStatusDoubleChecked() SyncCheckResult {
-	result := ss.isSynchronized(true)
+func (s *StagedSync) GetSyncStatusDoubleChecked() SyncCheckResult {
+	result := s.isSynchronized(true)
 	return result
 }
 
-func (ss *StagedSync) GetParsedSyncStatusDoubleChecked() (IsSynchronized bool, OtherHeight uint64, HeightDiff uint64) {
-	result := ss.isSynchronized(true)
+func (s *StagedSync) GetParsedSyncStatusDoubleChecked() (IsSynchronized bool, OtherHeight uint64, HeightDiff uint64) {
+	result := s.isSynchronized(true)
 	return ParseResult(result)
 }
 
 // isSynchronized query the remote DNS node for the latest height to check what is the current
 // sync status
-func (ss *StagedSync) isSynchronized(doubleCheck bool) SyncCheckResult {
-	if ss.syncConfig == nil {
+func (s *StagedSync) isSynchronized(doubleCheck bool) SyncCheckResult {
+	if s.syncConfig == nil {
 		return SyncCheckResult{} // If syncConfig is not instantiated, return not in sync
 	}
-	otherHeight1, _ := ss.getMaxPeerHeight(false)
-	lastHeight := ss.Blockchain().CurrentBlock().NumberU64()
+	otherHeight1, _ := s.getMaxPeerHeight(false)
+	lastHeight := s.Blockchain().CurrentBlock().NumberU64()
 	wasOutOfSync := lastHeight+inSyncThreshold < otherHeight1
 
 	if !doubleCheck {
@@ -1196,11 +1160,11 @@ func (ss *StagedSync) isSynchronized(doubleCheck bool) SyncCheckResult {
 			HeightDiff:     heightDiff,
 		}
 	}
-	// double check the sync status after 1 second to confirm (avoid false alarm)
+	// double-check the sync status after 1 second to confirm (avoid false alarm)
 	time.Sleep(1 * time.Second)
 
-	otherHeight2, _ := ss.getMaxPeerHeight(false)
-	currentHeight := ss.Blockchain().CurrentBlock().NumberU64()
+	otherHeight2, _ := s.getMaxPeerHeight(false)
+	currentHeight := s.Blockchain().CurrentBlock().NumberU64()
 
 	isOutOfSync := currentHeight+inSyncThreshold < otherHeight2
 	utils.Logger().Info().

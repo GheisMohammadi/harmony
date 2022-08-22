@@ -53,7 +53,7 @@ func NewStageBlockHashesCfg(ctx context.Context, bc core.BlockChain, db kv.RwDB,
 
 func initHashesCacheDB(ctx context.Context, isBeacon bool) (db kv.RwDB, err error) {
 	// create caches db
-	cachedbName := Block_Hashes_Cache_DB
+	cachedbName := BlockHashesCacheDB
 	if isBeacon {
 		cachedbName = "beacon_" + cachedbName
 	}
@@ -105,7 +105,7 @@ func (bh *StageBlockHashes) Exec(firstCycle bool, invalidBlockUnwind bool, s *St
 		if currProgress > 0 {
 			key := strconv.FormatUint(currProgress, 10)
 			bucketName := GetBucketName(BlockHashesBucket, isBeacon)
-			currHash := []byte{}
+			var currHash []byte
 			if currHash, err = etx.GetOne(bucketName, []byte(key)); err != nil || len(currHash[:]) == 0 {
 				//TODO: currProgress and DB don't match. Either re-download all or verify db and set currProgress to last
 				return err
@@ -172,7 +172,7 @@ func (bh *StageBlockHashes) Exec(firstCycle bool, invalidBlockUnwind bool, s *St
 			size = SyncLoopBatchSize
 		}
 		// Gets consensus hashes.
-		if err := s.state.getConsensusHashes(startHash[:], size); err != nil {
+		if err := s.state.getConsensusHashes(startHash, size); err != nil {
 			return err
 		}
 		// selects the most common peer config based on their block hashes and doing the clean up
@@ -274,7 +274,7 @@ func (bh *StageBlockHashes) runBackgroundProcess(tx kv.RwTx, s *StageState, isBe
 			}
 
 			// Gets consensus hashes.
-			if err := s.state.getConsensusHashes(currHash[:], size); err != nil {
+			if err := s.state.getConsensusHashes(currHash, size); err != nil {
 				return err
 			}
 
