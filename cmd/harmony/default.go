@@ -5,7 +5,7 @@ import (
 	nodeconfig "github.com/harmony-one/harmony/internal/configs/node"
 )
 
-const tomlConfigVersion = "2.5.7"
+const tomlConfigVersion = "2.5.8"
 
 const (
 	defNetworkType = nodeconfig.Mainnet
@@ -143,10 +143,23 @@ var defaultPrometheusConfig = harmonyconfig.PrometheusConfig{
 	Gateway:    "https://gateway.harmony.one",
 }
 
+var defaultStagedSyncConfig = harmonyconfig.StagedSyncConfig{
+	TurboMode:              true,
+	DoubleCheckBlockHashes: false,
+	MaxBlocksPerSyncCycle:  1024, // sync new blocks in each cycle, if set to zero means all blocks in one full cycle
+	MaxBackgroundBlocks:    512,  // max blocks to be downloaded at background process in turbo mode
+	InsertChainBatchSize:   128,  // number of blocks to build a batch and insert to chain in staged sync
+	VerifyHeaderBatchSize:  100,  // batch size to verify block header before insert to chain
+	MaxMemSyncCycleSize:    8192, // max number of blocks to use a single transaction for staged sync
+	UseMemDB:               true, // it uses memory by default. set it to false to use disk
+}
+
 var (
 	defaultMainnetSyncConfig = harmonyconfig.SyncConfig{
 		Enabled:        false,
 		Downloader:     false,
+		StagedSync:     false,
+		StagedSyncCfg:  defaultStagedSyncConfig,
 		Concurrency:    6,
 		MinPeers:       6,
 		InitStreams:    8,
@@ -159,6 +172,8 @@ var (
 	defaultTestNetSyncConfig = harmonyconfig.SyncConfig{
 		Enabled:        true,
 		Downloader:     false,
+		StagedSync:     false,
+		StagedSyncCfg:  defaultStagedSyncConfig,
 		Concurrency:    2,
 		MinPeers:       2,
 		InitStreams:    2,
@@ -170,7 +185,9 @@ var (
 
 	defaultLocalNetSyncConfig = harmonyconfig.SyncConfig{
 		Enabled:        true,
-		Downloader:     true,
+		Downloader:     false,
+		StagedSync:     false,
+		StagedSyncCfg:  defaultStagedSyncConfig,
 		Concurrency:    4,
 		MinPeers:       5,
 		InitStreams:    5,
@@ -183,6 +200,8 @@ var (
 	defaultElseSyncConfig = harmonyconfig.SyncConfig{
 		Enabled:        true,
 		Downloader:     true,
+		StagedSync:     false,
+		StagedSyncCfg:  defaultStagedSyncConfig,
 		Concurrency:    4,
 		MinPeers:       4,
 		InitStreams:    4,
