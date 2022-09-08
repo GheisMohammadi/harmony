@@ -8,6 +8,7 @@ import (
 
 	"github.com/harmony-one/harmony/internal/shardchain/leveldb_shard"
 	"github.com/harmony-one/harmony/internal/shardchain/local_cache"
+	"github.com/harmony-one/harmony/internal/utils"
 
 	"github.com/ethereum/go-ethereum/core/rawdb"
 
@@ -33,6 +34,7 @@ type LDBFactory struct {
 
 // NewChainDB returns a new LDB for the blockchain for given shard.
 func (f *LDBFactory) NewChainDB(shardID uint32) (ethdb.Database, error) {
+	utils.Logger().Info().Msgf("OOM_FIX -------------> NewChainDB LDBFactory 1")
 	dir := path.Join(f.RootDir, fmt.Sprintf("%s_%d", LDBDirPrefix, shardID))
 	return rawdb.NewLevelDBDatabase(dir, 256, 1024, "")
 }
@@ -42,6 +44,7 @@ type MemDBFactory struct{}
 
 // NewChainDB returns a new memDB for the blockchain for given shard.
 func (f *MemDBFactory) NewChainDB(shardID uint32) (ethdb.Database, error) {
+	utils.Logger().Info().Msgf("OOM_FIX -------------> NewChainDB MemDBFactory 1")
 	return rawdb.NewMemoryDatabase(), nil
 }
 
@@ -56,6 +59,11 @@ type LDBShardFactory struct {
 
 // NewChainDB returns a new memDB for the blockchain for given shard.
 func (f *LDBShardFactory) NewChainDB(shardID uint32) (ethdb.Database, error) {
+	utils.Logger().Info().
+		Interface("CacheSize", f.CacheSize).
+		Interface("DiskCount", f.DiskCount).
+		Interface("ShardCount", f.ShardCount).
+		Msgf("OOM_FIX -------------> NewChainDB LDBShardFactory 1")
 	dir := filepath.Join(f.RootDir, fmt.Sprintf("%s_%d", LDBShardDirPrefix, shardID))
 	shard, err := leveldb_shard.NewLeveldbShard(dir, f.DiskCount, f.ShardCount)
 	if err != nil {

@@ -77,10 +77,14 @@ func (sc *CollectionImpl) ShardChain(shardID uint32, options ...core.Options) (c
 	if bc, ok := sc.pool[shardID]; ok {
 		return bc, nil
 	}
+
+	utils.Logger().Info().Msg("OOM_FIX ------------> ShardChain 1")
+
 	var db ethdb.Database
 	defer func() {
 		if db != nil {
-			db.Close()
+			err:=db.Close()
+			utils.Logger().Info().Err(err).Msg("OOM_FIX ------------> ShardChain 3 db close failed")
 		}
 	}()
 	var err error
@@ -88,8 +92,11 @@ func (sc *CollectionImpl) ShardChain(shardID uint32, options ...core.Options) (c
 		// NewChainDB may return incompletely initialized DB;
 		// avoid closing it.
 		db = nil
+		utils.Logger().Info().Err(err).Msg("OOM_FIX ------------> ShardChain 2 db failed")
 		return nil, errors.Wrap(err, "cannot open chain database")
 	}
+	utils.Logger().Info().Msg("OOM_FIX ------------> ShardChain 3")
+
 	if rawdb.ReadCanonicalHash(db, 0) == (common.Hash{}) {
 		utils.Logger().Info().
 			Uint32("shardID", shardID).
@@ -98,6 +105,9 @@ func (sc *CollectionImpl) ShardChain(shardID uint32, options ...core.Options) (c
 			return nil, errors.Wrapf(err, "cannot initialize a new chain database")
 		}
 	}
+
+	utils.Logger().Info().Msg("OOM_FIX ------------> ShardChain 4")
+
 	var cacheConfig *core.CacheConfig
 	if sc.disableCache[shardID] {
 		cacheConfig = &core.CacheConfig{Disabled: true}
@@ -112,6 +122,7 @@ func (sc *CollectionImpl) ShardChain(shardID uint32, options ...core.Options) (c
 		// For beacon chain inside a shard chain, need to reset the eth chainID to shard 0's eth chainID in the config
 		chainConfig.EthCompatibleChainID = big.NewInt(chainConfig.EthCompatibleShard0ChainID.Int64())
 	}
+	utils.Logger().Info().Msg("OOM_FIX ------------> ShardChain 5")
 	opts := core.Options{}
 	if len(options) == 1 {
 		opts = options[0]
@@ -119,15 +130,19 @@ func (sc *CollectionImpl) ShardChain(shardID uint32, options ...core.Options) (c
 	var bc core.BlockChain
 	if opts.EpochChain {
 		bc, err = core.NewEpochChain(db, &chainConfig, sc.engine, vm.Config{})
+		utils.Logger().Info().Err(err).Msg("OOM_FIX ------------> ShardChain 6 NewEpochChain")
 	} else {
+		utils.Logger().Info().Msg("OOM_FIX ------------> ShardChain 7")
 		stateCache, err := initStateCache(db, sc, shardID)
 		if err != nil {
+			utils.Logger().Info().Err(err).Msg("OOM_FIX ------------> ShardChain 8 initStateCache failed")
 			return nil, err
 		}
 
 		bc, err = core.NewBlockChainWithOptions(
 			db, stateCache, cacheConfig, &chainConfig, sc.engine, vm.Config{}, opts,
 		)
+		utils.Logger().Info().Err(err).Msg("OOM_FIX ------------> ShardChain 9 NewBlockChainWithOptions")
 	}
 
 	if err != nil {
@@ -140,7 +155,7 @@ func (sc *CollectionImpl) ShardChain(shardID uint32, options ...core.Options) (c
 		// init the tikv mode
 		bc.InitTiKV(sc.harmonyconfig.TiKV)
 	}
-
+	utils.Logger().Info().Err(err).Msg("OOM_FIX ------------> ShardChain 10 done")
 	return bc, nil
 }
 
