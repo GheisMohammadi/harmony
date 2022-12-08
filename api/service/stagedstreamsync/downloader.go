@@ -187,7 +187,7 @@ func (d *Downloader) waitForBootFinish() {
 func (d *Downloader) loop() {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	initSync := true
+	initSync := d.bc.ShardID() != shard.BeaconChainShardID
 	trigger := func() {
 		select {
 		case d.downloadC <- struct{}{}:
@@ -243,7 +243,7 @@ func (d *Downloader) loop() {
 					d.bh.insertSync()
 				}
 			}
-			d.stagedSyncInstance.initSync = false;
+			d.stagedSyncInstance.initSync = false
 			initSync = false
 
 		case <-d.closeC:
