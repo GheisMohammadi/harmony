@@ -146,11 +146,14 @@ func (sr *StageEpoch) doShortRangeSyncForEpochSync(s *StageState) (int, error) {
 	n, err := s.state.bc.InsertChain(blocks, true)
 	numBlocksInsertedShortRangeHistogramVec.With(s.state.promLabels()).Observe(float64(n))
 	if err != nil {
+		utils.Logger().Info().Err(err).Int("blocks inserted", n).Msg("Insert block failed")
 		sh.removeStreams(streamID) // Data provided by remote nodes is corrupted
 		return n, err
 	}
-	utils.Logger().Info().Err(err).Int("blocks inserted", n).Msg("Insert block success")
-	return len(blocks), nil
+	if n>0 {
+		utils.Logger().Info().Int("blocks inserted", n).Msg("Insert block success")
+	}
+	return n, nil
 }
 
 func (sr *StageEpoch) Revert(firstCycle bool, u *RevertState, s *StageState, tx kv.RwTx) (err error) {
