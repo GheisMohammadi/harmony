@@ -52,8 +52,8 @@ func TestSaveLoadPrivateKey(t *testing.T) {
 
 	if !crypto.KeyEqual(pk, pk1) {
 		t.Errorf("loaded key is not right")
-		b1, _ := pk.Bytes()
-		b2, _ := pk1.Bytes()
+		b1, _ := pk.Raw()
+		b2, _ := pk1.Raw()
 		t.Errorf("expecting pk: %v\n", b1)
 		t.Errorf("got pk1: %v\n", b2)
 	}
