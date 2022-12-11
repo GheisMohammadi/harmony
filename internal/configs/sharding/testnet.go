@@ -12,6 +12,9 @@ import (
 // configuration schedule.
 var TestnetSchedule testnetSchedule
 
+var TestnetNinetyPercentEpoch = big.NewInt(399)
+var ShardReductionEpoch = big.NewInt(486)
+
 type testnetSchedule struct{}
 
 const (
@@ -31,7 +34,9 @@ const (
 
 func (ts testnetSchedule) InstanceForEpoch(epoch *big.Int) Instance {
 	switch {
-	case params.TestnetChainConfig.IsTestnetNinetyPercent(epoch):
+	case epoch.Cmp(ShardReductionEpoch) >= 0:
+		return testnetV3
+	case epoch.Cmp(TestnetNinetyPercentEpoch) >= 0:
 		return testnetV2
 	case params.TestnetChainConfig.IsStaking(epoch):
 		return testnetV1
@@ -109,7 +114,8 @@ var testnetReshardingEpoch = []*big.Int{
 }
 
 var (
-	testnetV0 = MustNewInstance(4, 8, 8, 0, numeric.OneDec(), genesis.TNHarmonyAccounts, genesis.TNFoundationalAccounts, emptyAllowlist, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
-	testnetV1 = MustNewInstance(4, 30, 8, 0.15, numeric.MustNewDecFromStr("0.70"), genesis.TNHarmonyAccounts, genesis.TNFoundationalAccounts, emptyAllowlist, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
-	testnetV2 = MustNewInstance(4, 30, 8, 0.15, numeric.MustNewDecFromStr("0.90"), genesis.TNHarmonyAccounts, genesis.TNFoundationalAccounts, emptyAllowlist, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
+	testnetV0 = MustNewInstance(4, 8, 8, 0, numeric.OneDec(), genesis.TNHarmonyAccounts, genesis.TNFoundationalAccounts, emptyAllowlist, emptyAddress, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
+	testnetV1 = MustNewInstance(4, 30, 8, 0.15, numeric.MustNewDecFromStr("0.70"), genesis.TNHarmonyAccounts, genesis.TNFoundationalAccounts, emptyAllowlist, emptyAddress, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
+	testnetV2 = MustNewInstance(4, 30, 8, 0.15, numeric.MustNewDecFromStr("0.90"), genesis.TNHarmonyAccounts, genesis.TNFoundationalAccounts, emptyAllowlist, emptyAddress, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
+	testnetV3 = MustNewInstance(2, 30, 8, 0.15, numeric.MustNewDecFromStr("0.90"), genesis.TNHarmonyAccountsV1, genesis.TNFoundationalAccounts, emptyAllowlist, emptyAddress, testnetReshardingEpoch, TestnetSchedule.BlocksPerEpoch())
 )
