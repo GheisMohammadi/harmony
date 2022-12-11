@@ -11,7 +11,7 @@ import (
 
 	nodeconfig "github.com/harmony-one/harmony/internal/configs/node"
 	"github.com/hashicorp/go-version"
-	libp2p_proto "github.com/libp2p/go-libp2p-core/protocol"
+	libp2p_proto "github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/pkg/errors"
 )
 
@@ -36,7 +36,8 @@ type ProtoID libp2p_proto.ID
 
 // ProtoSpec is the un-serialized stream proto id specification
 // TODO: move this to service wise module since different protocol might have different
-//   protoID information
+//
+//	protoID information
 type ProtoSpec struct {
 	Service     string
 	NetworkType nodeconfig.NetworkType

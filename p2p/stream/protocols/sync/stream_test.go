@@ -10,10 +10,10 @@ import (
 	protobuf "github.com/golang/protobuf/proto"
 	syncpb "github.com/harmony-one/harmony/p2p/stream/protocols/sync/message"
 	sttypes "github.com/harmony-one/harmony/p2p/stream/types"
-	ic "github.com/libp2p/go-libp2p-core/crypto"
-	libp2p_network "github.com/libp2p/go-libp2p-core/network"
-	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/libp2p/go-libp2p-core/protocol"
+	ic "github.com/libp2p/go-libp2p/core/crypto"
+	libp2p_network "github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	ma "github.com/multiformats/go-multiaddr"
 )
 
