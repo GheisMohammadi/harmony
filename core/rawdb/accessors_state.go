@@ -41,10 +41,10 @@ func WritePreimages(db ethdb.KeyValueWriter, preimages map[common.Hash][]byte) e
 }
 
 // ReadCode retrieves the contract code of the provided code hash.
-func ReadCode(db ethdb.KeyValueReader, hash common.Hash) []byte {
+func ReadCode(db ethdb.KeyValueReader, hash common.Hash, withPrefix bool) []byte {
 	// Try with the prefixed code scheme first, if not then try with legacy
 	// scheme.
-	data := ReadCodeWithPrefix(db, hash)
+	data := ReadCodeWithPrefix(db, hash, withPrefix)
 	if len(data) != 0 {
 		return data
 	}
@@ -55,17 +55,17 @@ func ReadCode(db ethdb.KeyValueReader, hash common.Hash) []byte {
 // ReadCodeWithPrefix retrieves the contract code of the provided code hash.
 // The main difference between this function and ReadCode is this function
 // will only check the existence with latest scheme(with prefix).
-func ReadCodeWithPrefix(db ethdb.KeyValueReader, hash common.Hash) []byte {
-	data, _ := db.Get(codeKey(hash))
+func ReadCodeWithPrefix(db ethdb.KeyValueReader, hash common.Hash, withPrefix bool) []byte {
+	data, _ := db.Get(codeKey(hash, withPrefix))
 	return data
 }
 
 // HasCode checks if the contract code corresponding to the
 // provided code hash is present in the db.
-func HasCode(db ethdb.KeyValueReader, hash common.Hash) bool {
+func HasCode(db ethdb.KeyValueReader, hash common.Hash, withPrefix bool) bool {
 	// Try with the prefixed code scheme first, if not then try with legacy
 	// scheme.
-	if ok := HasCodeWithPrefix(db, hash); ok {
+	if ok := HasCodeWithPrefix(db, hash, withPrefix); ok {
 		return true
 	}
 	ok, _ := db.Has(hash.Bytes())
@@ -75,21 +75,21 @@ func HasCode(db ethdb.KeyValueReader, hash common.Hash) bool {
 // HasCodeWithPrefix checks if the contract code corresponding to the
 // provided code hash is present in the db. This function will only check
 // presence using the prefix-scheme.
-func HasCodeWithPrefix(db ethdb.KeyValueReader, hash common.Hash) bool {
-	ok, _ := db.Has(codeKey(hash))
+func HasCodeWithPrefix(db ethdb.KeyValueReader, hash common.Hash, withPrefix bool) bool {
+	ok, _ := db.Has(codeKey(hash, withPrefix))
 	return ok
 }
 
 // WriteCode writes the provided contract code database.
-func WriteCode(db ethdb.KeyValueWriter, hash common.Hash, code []byte) {
-	if err := db.Put(codeKey(hash), code); err != nil {
+func WriteCode(db ethdb.KeyValueWriter, hash common.Hash, code []byte, withPrefix bool) {
+	if err := db.Put(codeKey(hash, withPrefix), code); err != nil {
 		utils.Logger().Error().Err(err).Msg("Failed to store contract code")
 	}
 }
 
 // DeleteCode deletes the specified contract code from the database.
-func DeleteCode(db ethdb.KeyValueWriter, hash common.Hash) {
-	if err := db.Delete(codeKey(hash)); err != nil {
+func DeleteCode(db ethdb.KeyValueWriter, hash common.Hash, withPrefix bool) {
+	if err := db.Delete(codeKey(hash, withPrefix)); err != nil {
 		utils.Logger().Error().Err(err).Msg("Failed to delete contract code")
 	}
 }

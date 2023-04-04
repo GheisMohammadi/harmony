@@ -73,6 +73,7 @@ var (
 		LeaderRotationEpoch:           EpochTBD,
 		LeaderRotationBlocksCount:     64,
 		ValidatorCodeFixEpoch:         EpochTBD,
+		ContractCodePrefixEpoch:       EpochTBD,
 	}
 
 	// TestnetChainConfig contains the chain parameters to run a node on the harmony test network.
@@ -114,6 +115,7 @@ var (
 		LeaderRotationBlocksCount:     64,
 		FeeCollectEpoch:               EpochTBD,
 		ValidatorCodeFixEpoch:         EpochTBD,
+		ContractCodePrefixEpoch:       EpochTBD,
 	}
 	// PangaeaChainConfig contains the chain parameters for the Pangaea network.
 	// All features except for CrossLink are enabled at launch.
@@ -155,6 +157,7 @@ var (
 		LeaderRotationBlocksCount:     64,
 		FeeCollectEpoch:               EpochTBD,
 		ValidatorCodeFixEpoch:         EpochTBD,
+		ContractCodePrefixEpoch:       EpochTBD,
 	}
 
 	// PartnerChainConfig contains the chain parameters for the Partner network.
@@ -197,6 +200,7 @@ var (
 		LeaderRotationEpoch:           EpochTBD,
 		LeaderRotationBlocksCount:     64,
 		ValidatorCodeFixEpoch:         EpochTBD,
+		ContractCodePrefixEpoch:       EpochTBD,
 	}
 
 	// StressnetChainConfig contains the chain parameters for the Stress test network.
@@ -239,6 +243,7 @@ var (
 		LeaderRotationEpoch:           EpochTBD,
 		LeaderRotationBlocksCount:     64,
 		ValidatorCodeFixEpoch:         EpochTBD,
+		ContractCodePrefixEpoch:       EpochTBD,
 	}
 
 	// LocalnetChainConfig contains the chain parameters to run for local development.
@@ -280,6 +285,7 @@ var (
 		LeaderRotationBlocksCount:     5,
 		FeeCollectEpoch:               big.NewInt(5),
 		ValidatorCodeFixEpoch:         EpochTBD,
+		ContractCodePrefixEpoch:       EpochTBD,
 	}
 
 	// AllProtocolChanges ...
@@ -323,6 +329,7 @@ var (
 		64,                                 // LeaderRotationBlocksCount
 		big.NewInt(0),                      // FeeCollectEpoch
 		big.NewInt(0),                      // ValidatorCodeFixEpoch
+		big.NewInt(0),                      // ContractCodePrefixEpoch
 	}
 
 	// TestChainConfig ...
@@ -366,6 +373,7 @@ var (
 		64,                   // LeaderRotationBlocksCount
 		big.NewInt(0),        // FeeCollectEpoch
 		big.NewInt(0),        // ValidatorCodeFixEpoch
+		big.NewInt(0),        // ContractCodePrefixEpoch
 	}
 
 	// TestRules ...
@@ -522,6 +530,9 @@ type ChainConfig struct {
 	// Contracts can check the (presence of) validator code by calling the following:
 	// extcodesize, extcodecopy and extcodehash.
 	ValidatorCodeFixEpoch *big.Int `json:"validator-code-fix-epoch,omitempty"`
+
+	// Add prefix for code to level db
+	ContractCodePrefixEpoch *big.Int `json:"contract-code-prefix-epoch,omitempty"`
 }
 
 // String implements the fmt.Stringer interface.
@@ -737,6 +748,10 @@ func (c *ChainConfig) IsValidatorCodeFix(epoch *big.Int) bool {
 	return isForked(c.ValidatorCodeFixEpoch, epoch)
 }
 
+func (c *ChainConfig) IsContractCodePrefixEpoch(epoch *big.Int) bool {
+	return isForked(c.ContractCodePrefixEpoch, epoch)
+}
+
 // UpdateEthChainIDByShard update the ethChainID based on shard ID.
 func UpdateEthChainIDByShard(shardID uint32) {
 	once.Do(func() {
@@ -795,6 +810,8 @@ type Rules struct {
 	// eip-155 chain id fix
 	IsChainIdFix bool
 	IsValidatorCodeFix bool
+	// Add prefix to contract code in db
+	IsContractCodePrefix bool
 }
 
 // Rules ensures c's ChainID is not nil.
@@ -820,5 +837,6 @@ func (c *ChainConfig) Rules(epoch *big.Int) Rules {
 		IsCrossShardXferPrecompile: c.IsCrossShardXferPrecompile(epoch),
 		IsChainIdFix:               c.IsChainIdFix(epoch),
 		IsValidatorCodeFix:         c.IsValidatorCodeFix(epoch),
+		IsContractCodePrefix:       c.IsContractCodePrefixEpoch(epoch),
 	}
 }

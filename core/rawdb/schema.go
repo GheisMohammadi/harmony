@@ -182,8 +182,10 @@ func skeletonHeaderKey(number uint64) []byte {
 }
 
 // codeKey = CodePrefix + hash
-func codeKey(hash common.Hash) []byte {
-	// We don't use any prefix for code key, otherwise we should return append(CodePrefix, hash.Bytes()...)
+func codeKey(hash common.Hash, withPrefix bool) []byte {
+	if withPrefix {
+		return append(CodePrefix, hash.Bytes()...)
+	}
 	return hash.Bytes()
 }
 
