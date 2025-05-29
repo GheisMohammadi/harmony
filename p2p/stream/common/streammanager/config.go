@@ -10,6 +10,9 @@ const (
 	discTimeout = 10 * time.Second
 	// connectTimeout is the timeout for setting up a stream with a discovered peer
 	connectTimeout = 60 * time.Second
+
+	// setupConcurrency limits concurrent stream setup goroutines
+	setupConcurrency = 16
 )
 
 // Config is the config for stream manager

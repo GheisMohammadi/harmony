@@ -38,6 +38,9 @@ type requestManager struct {
 	logger zerolog.Logger
 	stopC  chan struct{}
 	lock   sync.Mutex
+
+	// limit concurrent writes
+	writeSem chan struct{}
 }
 
 // NewRequestManager creates a new request manager
@@ -68,9 +71,10 @@ func newRequestManager(sm streammanager.ReaderSubscriber) *requestManager {
 		deliveryC:   make(chan responseData, 128),
 		newRequestC: make(chan *request, 128),
 
-		subs:   []event.Subscription{sub1, sub2},
-		logger: logger,
-		stopC:  make(chan struct{}),
+		subs:     []event.Subscription{sub1, sub2},
+		logger:   logger,
+		stopC:    make(chan struct{}),
+		writeSem: make(chan struct{}, writeConcurrency),
 	}
 }
 
@@ -164,6 +168,8 @@ func (rm *requestManager) loop() {
 				}
 
 				go func() {
+					rm.writeSem <- struct{}{}
+					defer func() { <-rm.writeSem }()
 					if err := st.WriteBytes(b); err != nil {
 						rm.logger.Warn().Str("streamID", string(st.ID())).Err(err).
 							Msg("write bytes")
