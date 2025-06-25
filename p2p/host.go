@@ -750,6 +750,14 @@ func (host *HostV2) ListenClose(net libp2p_network.Network, addr ma.Multiaddr) {
 func (host *HostV2) Connected(net libp2p_network.Network, conn libp2p_network.Conn) {
 	host.logger.Debug().Interface("node", conn.RemotePeer()).Msg("peer connected")
 
+	// Log muxer being used for this connection if available.
+	if state := conn.ConnState(); state.Muxer != "" {
+		host.logger.Info().
+			Str("muxer", state.Muxer).
+			Str("peer", conn.RemotePeer().String()).
+			Msg("connection muxer selected")
+	}
+
 	for _, function := range host.onConnections.GetAll() {
 		if err := function(net, conn); err != nil {
 			host.logger.Error().Err(err).Interface("node", conn.RemotePeer()).Msg("failed on peer connected callback")
